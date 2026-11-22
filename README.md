@@ -2,7 +2,7 @@
 
 Wireless transmission of surface electromyography (sEMG) signals using ESP32 microcontrollers over WiFi (UDP).
 
-**Study Oriented Project — BITS Pilani, under Prof. Y. Sujan**
+**Study Oriented Project - BITS Pilani, under Prof. Y. Sujan**
 
 ## Overview
 
@@ -28,7 +28,7 @@ This project implements a wireless sEMG signal acquisition and transmission syst
 
 | Configuration | Status | SNR (dB) |
 |---|---|---|
-| ESP-WROOM-32 + Patchy + Laptop USB | ✅ Successful | 10.7 – 14.8 |
+| ESP-WROOM-32 + Patchy + Laptop USB | ✅ Successful | 10.7 - 14.8 |
 | ESP-WROOM-32 + Patchy + Battery | ✅ Successful | Comparable |
 | ESP-WROOM-32 + In-House Sensor | ❌ Failed | N/A |
 | ESP32-C3 SuperMini + Patchy | ❌ Failed | N/A |
