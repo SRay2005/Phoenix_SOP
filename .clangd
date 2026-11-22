@@ -1,2 +1,5 @@
-CompileFlags:
-  Add: [-xc++, -Wno-unknown-pragmas]
+If:
+  PathMatch: .*\.ino$
+
+Diagnostics:
+  Suppress: ["*"]
