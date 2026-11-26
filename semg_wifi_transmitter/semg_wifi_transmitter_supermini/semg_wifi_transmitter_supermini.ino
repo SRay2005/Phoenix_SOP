@@ -18,8 +18,7 @@ semg_wifi_transmitter_c3.ino
 
 const char *WIFI_SSID = "personal";
 const char *WIFI_PASSWORD = "12345678";
-IPAddress LAPTOP_IP(172, 20, 10,
-                    5); // laptop's IPv4 address on the hotspot (ipconfig)
+IPAddress LAPTOP_IP(172, 20, 10, 5); // laptop's IPv4 address on the hotspot (ipconfig)
 
 const int UDP_PORT = 4210;
 
