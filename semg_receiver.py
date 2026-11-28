@@ -33,7 +33,6 @@ import csv
 import os
 from datetime import datetime
 from collections import deque
-from statistics import median
 
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -42,15 +41,13 @@ from matplotlib.ticker import MultipleLocator
 UDP_PORT = 4210            # must match UDP_PORT in the .ino file
 WINDOW_SIZE = 1000         # how many recent samples to show on screen at once
 ADC_MAX = 4095             # 12-bit ADC: 0-4095
-VREF = 3.3                  # ESP32 ADC input range when supplied through a 3.3 V divider
+VREF = 5                # ESP32 ADC reference voltage
 
 # How often (in animation frames) to recompute the y-axis center/zoom.
 # Every frame would make the axis jitter distractingly; every ~15
 # frames (roughly every 0.3s at the 20ms interval below) keeps it
 # responsive without being jumpy.
 RESCALE_EVERY_N_FRAMES = 15
-BASELINE_CALIBRATION_SAMPLES = 500
-BASELINE_ADAPTATION = 0.01
 
 
 def raw_to_voltage(raw):
@@ -85,35 +82,32 @@ print("Close the plot window or press Ctrl+C to stop (this saves the CSV).")
 # A deque is just a list that automatically drops old values once full -
 # perfect for a scrolling "last N samples" view.
 values = deque([0] * WINDOW_SIZE, maxlen=WINDOW_SIZE)
-calibration_values = deque(maxlen=BASELINE_CALIBRATION_SAMPLES)
-baseline = None
-packet_count = 0
+
 frame_count = 0
 
 fig, ax = plt.subplots()
 line, = ax.plot(values)
 
 ax.set_xlabel("Sample (most recent on the right)")
-ax.set_ylabel("ADC deviation from baseline")
+ax.set_ylabel("Voltage (V)")
 ax.set_title("Live sEMG Signal (wireless)")
 
-# Start with a small symmetric range until real baseline and signal
-# values have been observed.
-ax.set_ylim(-100, 100)
+# Start with the full range until we have real data to center on.
+ax.set_ylim(0, VREF)
 
-# Grid spacing is recalibrated in ADC counts as the displayed range
-# changes. Multiples of 100 are readable across the whole signal range.
-ax.yaxis.set_major_locator(MultipleLocator(100))
+# Finer gridlines: a major tick every 0.2V, with a light grid to
+# make it easy to read values off the graph by eye.
+ax.yaxis.set_major_locator(MultipleLocator(0.2))
 ax.grid(True, which="major", axis="y", alpha=0.3)
 
-# The right axis shows the corresponding raw ADC level. It also moves
-# with the estimated baseline, making the left plot baseline-relative.
+# A second y-axis on the right showing the raw 0-4095 ADC number,
+# in case you want to cross-check against Serial Monitor output.
 ax_raw = ax.twinx()
 ax_raw.set_ylabel("Raw ADC value")
 
 
 def update(frame):
-    global frame_count, packet_count, baseline
+    global frame_count
 
     # Drain every packet currently waiting in the buffer so we don't
     # fall behind the incoming stream.
@@ -132,49 +126,32 @@ def update(frame):
             continue  # malformed packet - skip rather than crash
 
         values.append(raw)
-        packet_count += 1
-
-        if baseline is None:
-            calibration_values.append(raw)
-            if packet_count >= BASELINE_CALIBRATION_SAMPLES:
-                baseline = median(calibration_values)
 
         voltage = raw_to_voltage(raw)
         timestamp = datetime.now().isoformat()
         csv_writer.writerow([counter, raw, f"{voltage:.4f}", timestamp])
 
-    if baseline is None:
-        deviations = [0.0] * len(values)
-    else:
-        deviations = [raw - baseline for raw in values]
-
-    line.set_ydata(deviations)
+    # Convert the whole visible window to voltage for plotting.
+    voltages = [raw_to_voltage(v) for v in values]
+    line.set_ydata(voltages)
 
     frame_count += 1
 
-    # Re-estimate the baseline slowly from the recent window. A median
-    # ignores brief muscle bursts and works for both a positive-only
-    # signal and a sensor whose offset is centered above 0 ADC counts.
+    # Periodically re-center the y-axis on wherever the signal
+    # actually sits, instead of leaving it fixed at 0-3.3V the
+    # whole time (which wastes most of the plot on empty space
+    # once you know the baseline).
     if frame_count % RESCALE_EVERY_N_FRAMES == 0:
-        recent = list(values)
-        if packet_count >= WINDOW_SIZE:
-            window_median = median(recent)
+        v_min, v_max = min(voltages), max(voltages)
+        v_center = (v_min + v_max) / 2
+        v_span = max(v_max - v_min, 0.1)  # avoid a zero-height range
+        padding = v_span * 0.3            # 30% headroom above/below
 
-            if baseline is None:
-                baseline = window_median
-            else:
-                baseline += BASELINE_ADAPTATION * (window_median - baseline)
+        new_bottom = max(0, v_center - v_span / 2 - padding)
+        new_top = min(VREF, v_center + v_span / 2 + padding)
 
-            deviations = [raw - baseline for raw in recent]
-            peak = max(abs(value) for value in deviations)
-            limit = max(peak * 1.20, 20)
-
-            ax.set_ylim(-limit, limit)
-            ax_raw.set_ylim(baseline - limit, baseline + limit)
-
-            ax.set_title(
-                f"Live sEMG Signal (baseline: {baseline:.0f} ADC)"
-            )
+        ax.set_ylim(new_bottom, new_top)
+        ax_raw.set_ylim(new_bottom / VREF * ADC_MAX, new_top / VREF * ADC_MAX)
 
     return line,
 
