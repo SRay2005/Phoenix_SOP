@@ -22,7 +22,7 @@ IPAddress LAPTOP_IP(172, 20, 10, 5); // laptop's IPv4 address on the hotspot (ip
 
 const int UDP_PORT = 4210;
 
-const int SEMG_PIN = 3; // Patchy signal (through the 10k/10k divider)
+const int SEMG_PIN = 3; // Patchy signal 
 const int LED_PIN = 8;  // SuperMini blue LED, lit when the pin is LOW
 
 const int SAMPLE_RATE_HZ = 1000;
